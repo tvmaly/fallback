@@ -30,7 +30,9 @@
 
 		// Libraries successfully loaded.
 		success: {},
-		success_count: 0
+		success_count: 0,
+
+		check: {}
 	};
 
 	// Bootstrap our library.
@@ -95,6 +97,19 @@
 		return false;
 	};
 
+	// if no global, do we have a function to check
+	fallback.check_load = function(variable) {
+		var me = this;
+
+		if ( typeof me.check[variable]  == 'function' ) {
+			return me.check[variable]();
+		} else {
+			return false;
+		}
+	};
+
+
+
 	// Import and cleanse libraries from user input.
 	fallback.importer = function(libraries, options) {
 		var me = this;
@@ -102,6 +117,8 @@
 		var library, urls;
 		var cleansed_shims, shim, shims;
 		var shim_libraries, shim_libraries_cleansed;
+		var check_func_name,checks;
+		var check_functions = {};
 
 		// Cleanse the libraries.
 		var cleansed_libraries = {};
@@ -153,6 +170,7 @@
 				shims = options.shim;
 
 				for (shim in shims) {
+
 					shim_libraries = shims[shim];
 
 					// If `shim` doesn't exist in libraries, skip, it's invalid.
@@ -198,11 +216,20 @@
 					me.shims[shim] = current.concat(shim_libraries_cleansed);
 				}
 			}
+
+			if (me.is_object(options.check)) {
+
+				checks = options.check;
+				for (check_func_name in checks) {
+					check_functions[check_func_name] = checks[check_func_name];
+				}
+			}
 		}
 
 		return {
 			libraries: cleansed_libraries,
-			shims: cleansed_shims
+			shims: cleansed_shims,
+			'check': check_functions
 		};
 	};
 
@@ -287,6 +314,10 @@
 
 		// Import libraries.
 		imported = me.importer(libraries, options);
+
+		if(imported['check']) {
+			me.check = imported['check'];
+		}
 
 		// Spawn library instances from user input.
 		for (library in imported.libraries) {
@@ -470,7 +501,7 @@
 
 		element.onload = function() {
 			// Checks for JavaScript library.
-			if (type === 'js' && !me.is_defined(library)) {
+			if (type === 'js' && ( !me.is_defined(library) && !me.check_load(library) )) {
 				return me.spawn.failed(payload);
 			}
 
